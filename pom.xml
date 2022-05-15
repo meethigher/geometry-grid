@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>top.meethigher.geometrygrid</groupId>
+    <artifactId>geometry-grid</artifactId>
+    <version>1.0.0</version>
+
+    <properties>
+        <project.build.sourceEncoding>utf-8</project.build.sourceEncoding>
+        <compiler.encoding>utf-8</compiler.encoding>
+        <java.source.version>1.8</java.source.version>
+        <java.target.version>1.8</java.target.version>
+        <geotools.version>22-RC</geotools.version>
+    </properties>
+
+    <repositories>
+        <repository>
+            <id>osgeo</id>
+            <name>OSGeo Release Repository</name>
+            <url>https://repo.osgeo.org/repository/release/</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+        </repository>
+    </repositories>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-grid</artifactId>
+            <version>${geotools.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-opengis</artifactId>
+            <version>${geotools.version}</version>
+        </dependency>
+
+
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-epsg-hsql</artifactId>
+            <version>${geotools.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax</groupId>
+                    <artifactId>javaee-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-main</artifactId>
+            <version>${geotools.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax</groupId>
+                    <artifactId>javaee-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>org.geotools</groupId>
+            <artifactId>gt-geojson</artifactId>
+            <version>${geotools.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>javax</groupId>
+                    <artifactId>javaee-api</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+            <scope>test</scope>
+        </dependency>
+
+
+
+    </dependencies>
+
+
+</project>
