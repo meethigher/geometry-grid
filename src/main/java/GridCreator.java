@@ -74,11 +74,6 @@ public class GridCreator {
             return null;
         }
 
-        /**
-         * 为啥要2/3扩展？如果maxY-minY比sideLen多出了哪怕1cm，额外的那1cm，就不会被分块了，因为分不了
-         * max与min都扩展2/3，相当于多加了一个块，剩下了一点。
-         */
-        double expand = sideLen / 2;
         //以东西为x轴，南北为y轴，获取包含此几何图形中最小和最大x和y值
         //如果是一条斜线，就重组x、y坐标构成一个矩形。
         Envelope envelopeInternal = geometry.getEnvelopeInternal();

@@ -1,3 +1,9 @@
+趁着周末学习一下大佬的写法，发现大佬的写法也是有Bug的，于是便想着优化一下。
+
+工作中的一个需求，功能就是落点分析，要精确的分析，一开始使用的拓宽后合并，然后根据合并的结果是否包含指定结果，来确定是否完全落点。但是要精确到某个地方没落点就不行了。
+
+于是公司大佬就研究下了geotools实现了一个分块功能，根据分块来落点，然后最后取出没落点的块，实现漏点分析。
+
 # 一、废话
 
 介绍正文之前，先记录下周六玩的东西。苏见信的《顽魂》是真的好听，降噪耳机，单曲循环24小时+码字，俩字**浪漫**！
@@ -8,7 +14,8 @@
 
 **“尽管烧成埃，以血肉灭黑白，凭一身顽魂不会坏”**
 
-![图片](https://meethigher.top/blog/2022/geometry-grid/1.jpg)
+![](https://meethigher.top/blog/2022/geometry-grid/1.jpg)
+
 
 直接抓包下了MV，想自己打磨下——**提高分辨率**和**补帧**，这里发现了几个好用的算法/工具。
 
@@ -25,8 +32,9 @@
 1. [Vector grids — GeoTools 27-SNAPSHOT User Guide](https://docs.geotools.org/stable/userguide/extension/grid.html#polygon-grids)
 2. [clydedacruz/openstreetmap-wkt-playground: Plot and visualize WKT shapes on OpenStreetMap](https://github.com/clydedacruz/openstreetmap-wkt-playground)
 3. [asapelkin/wkt_3d_viewer: WKT (Well-known text) viewer on the 3D Earth](https://github.com/asapelkin/wkt_3d_viewer)
-4. [2D绘制wkt](https://meethigher.top/gis/)
-5. [本文源码](https://github.com/meethigher/geometry-grid)
+4. [wkt在线绘制展示_EPSG4326](https://meethigher.top/wkt/)
+5. [meethigher/wkt-show-on-openlayers: 基于openlayers的wkt绘制展示功能](https://github.com/meethigher/wkt-show-on-openlayers)
+6. [本文源码](https://github.com/meethigher/geometry-grid)
 
 工作中的一个需求，功能就是**落点分析**。要精确的分析，一开始使用的缓存拓宽后合并，然后根据合并的结果是否包含指定区域，来确定是否完全落点。但是要精确到某个地方没落点就不行了。于是公司大佬就研究下了geotools实现了一个分块功能，根据分块来落点，然后最后取出没落点的块，实现漏点分析。
 
@@ -138,7 +146,7 @@ maven依赖pom
 1. 获取边界，构建矩形
 2. 根据要切的边长，将矩形切成小块。
 
-![图片](https://meethigher.top/blog/2022/geometry-grid/6.jpg)
+![](https://meethigher.top/blog/2022/geometry-grid/6.jpg)
 
 下面展示Geotools如何获取边界
 
@@ -149,15 +157,21 @@ Geometry envelope = geometry.getEnvelope();
 下面展示官方文档给的例子，其实结果已经接近我所想要的90%了。
 
 ```java
-public class Test {
+/**
+ * 单元测试
+ *
+ * @author chenchuancheng github.com/meethigher
+ * @since 2022/5/15 22:08
+ */
+public class GeometryGridTest {
 
-    @org.junit.Test
+    @Test
     public void testGrid() throws Exception {
 
-        double sideLen = 0.002;
+        double sideLen = 0.001;
 
-//        String wkt = "LINESTRING(106.67105340852869 29.530636809322942,106.66803216986591 29.52328796943324)";
-//        String wkt = "LINESTRING(106.66641855239867 29.52517003980182,106.67002344131468 29.532727843679083,106.67507028736871 29.530487446637224,106.67675256676739 29.533175917132013)";
+        //String wkt = "LINESTRING(106.67105340852869 29.530636809322942,106.66803216986591 29.52328796943324)";
+        //String wkt = "LINESTRING(106.66641855239867 29.52517003980182,106.67002344131468 29.532727843679083,106.67507028736871 29.530487446637224,106.67675256676739 29.533175917132013)";
         String wkt = "POLYGON((106.65735483169556 29.530158851923517,106.65258264620205 29.52902369502023,106.64671182632448 29.530965403423963,106.64609384562937 29.52785865163041,106.64588785250089 29.524781676802462,106.65330362477108 29.522899600833085,106.6530289655202 29.524542686760086,106.65141534831493 29.527111822862878,106.6533379565226 29.527380681416773,106.65756082482405 29.526514355331983,106.65776682057185 29.52403482645859,106.66192102537026 29.522122860471057,106.67208337731424 29.521585112423097,106.67551660747264 29.522929476044652,106.67881250276693 29.52531940968403,106.67943048477169 29.528814585054363,106.68025446252427 29.532459000021845,106.67874383926389 29.53428115740634,106.6783661873778 29.532548613742065,106.67850351438389 29.530218596454873,106.6765122413635 29.531114763609096,106.67575693235264 29.5339824452562,106.67469262972004 29.536192894729282,106.67187738418576 29.53732797116615,106.67012643866471 29.53583444659172,106.67246103443901 29.5338330889642,106.67290735244748 29.531831692071208,106.66882181115214 29.53189143550047,106.66703653387954 29.53278758783246,106.66264200158184 29.535655222388314,106.65986108779906 29.536909786679814,106.65821314015191 29.5349084499357,106.65838480152888 29.532309639998616,106.65735483169556 29.530158851923517))";
 
         WKTReader reader = new WKTReader();
@@ -171,21 +185,11 @@ public class Test {
         double maxY = envelopeInternal.getMaxY();
         double minY = envelopeInternal.getMinY();
 
-        //如果sideLen超过了最大值，就进行拓宽。
-        if ((maxX - minX) < sideLen) {
-            double expand = sideLen / 2;
-            maxX += expand;
-            minX -= expand;
-        }
-        if ((maxY - minY) < sideLen) {
-            double expand = sideLen / 2;
-            maxY += expand;
-            minY -= expand;
-        }
-        //构建边界，使用84坐标系即可。
+        //构建边界，坐标系随便传啦。
+        //这个坐标系其实也无所谓，作用就是创建的时候，塞进去，读取的时候在查出来。你乱传都不影响结果
+        //没啥作用，要非要说作用，那就是起个标识的作用啦，方便你断点的时候知道这是个啥
         ReferencedEnvelope gridBounds =
                 new ReferencedEnvelope(minX, maxX, minY, maxY, DefaultGeographicCRS.WGS84);
-
         SimpleFeatureSource grid = Grids.createSquareGrid(gridBounds, sideLen);
         List<String> gridList = new LinkedList<>();
         SimpleFeatureIterator iterator = grid.getFeatures().features();
@@ -194,7 +198,6 @@ public class Test {
             Object defaultGeometry = feature.getDefaultGeometry();
             gridList.add(defaultGeometry.toString());
         }
-        //添加自身，方便展示，https://meethigher.top/gis/
         gridList.add(wkt);
         System.out.println(gridList);
     }
@@ -203,21 +206,21 @@ public class Test {
 
 这三个wkt，最后的结果依次是下面的三张图。
 
-![图片](https://meethigher.top/blog/2022/geometry-grid/2.jpg)
+![](https://meethigher.top/blog/2022/geometry-grid/2.jpg)
 
-![图片](https://meethigher.top/blog/2022/geometry-grid/3.jpg)
+![](https://meethigher.top/blog/2022/geometry-grid/3.jpg)
 
-![图片](https://meethigher.top/blog/2022/geometry-grid/4.jpg)
+![](https://meethigher.top/blog/2022/geometry-grid/4.jpg)
 
 由图可知，就取第一张图来说，根据我的需求，我应该要的是下面这种效果。白色表示丢弃的部分。过滤掉白色这部分，线只需要通过相交判断，如果是面，还需要包含才可。
 
-![图片](https://meethigher.top/blog/2022/geometry-grid/5.jpg)
+![](https://meethigher.top/blog/2022/geometry-grid/5.jpg)
 
 下面进行修改，修改的过程还是要多断点查看，从createSquareGrid断点进入，查看里面的具体逻辑。此处不多赘述！
 
 关键的地方如下，通过此处我们可以进行过滤。
 
-![图片](https://meethigher.top/blog/2022/geometry-grid/7.jpg)
+![](https://meethigher.top/blog/2022/geometry-grid/7.jpg )
 
 接下来，自己实现一个Builder，添加自己的逻辑，其他的直接源码拷一份！
 
@@ -342,7 +345,7 @@ public class GridCreator {
 
     /**
      * 坐标系
-     * 默认使用84坐标系
+     * 默认使用WGS
      */
     private CoordinateReferenceSystem crs;
 
@@ -393,11 +396,6 @@ public class GridCreator {
             return null;
         }
 
-        /**
-         * 为啥要2/3扩展？如果maxY-minY比sideLen多出了哪怕1cm，额外的那1cm，就不会被分块了，因为分不了
-         * max与min都扩展2/3，相当于多加了一个块，剩下了一点。
-         */
-        double expand = sideLen / 2;
         //以东西为x轴，南北为y轴，获取包含此几何图形中最小和最大x和y值
         //如果是一条斜线，就重组x、y坐标构成一个矩形。
         Envelope envelopeInternal = geometry.getEnvelopeInternal();
@@ -457,7 +455,7 @@ public void testCreator() throws Exception {
     GridCreator creator = new GridCreator(new GridCreatorFeatureBuilder(geometry, DefaultGeographicCRS.WGS84), 0.001, geometry);
     List<String> list = creator.create();
 
-    //添加自身，方便显示，https://meethigher.top/gis/
+    //添加自身，方便显示，https://meethigher.top/wkt/
     list.add(wkt);
     System.out.println(list);
 }
@@ -465,11 +463,11 @@ public void testCreator() throws Exception {
 
 最后结果展示如图，符合需求了。
 
-![图片](https://meethigher.top/blog/2022/geometry-grid/8.jpg)
+![](https://meethigher.top/blog/2022/geometry-grid/8.jpg)
 
-![图片](https://meethigher.top/blog/2022/geometry-grid/9.jpg)
+![](https://meethigher.top/blog/2022/geometry-grid/9.jpg)
 
-![图片](https://meethigher.top/blog/2022/geometry-grid/10.jpg)
+![](https://meethigher.top/blog/2022/geometry-grid/10.jpg)
 
 总体上，没什么特别复杂的，就是调用geotools提供的api就可以了。
 
