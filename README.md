@@ -16,7 +16,6 @@
 
 ![](https://meethigher.top/blog/2022/geometry-grid/1.jpg)
 
-
 直接抓包下了MV，想自己打磨下——**提高分辨率**和**补帧**，这里发现了几个好用的算法/工具。
 
 1. [ailab: B站开源算法，超吃显存，我的1650显存4G带不动，不过出来的效果吊打下面两个，只能说B站调教还是牛逼](https://github.com/bilibili/ailab)
@@ -60,11 +59,14 @@ maven依赖pom
     <version>1.0.0</version>
 
     <properties>
+        <java.version>8</java.version>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>utf-8</project.build.sourceEncoding>
         <compiler.encoding>utf-8</compiler.encoding>
-        <java.source.version>1.8</java.source.version>
-        <java.target.version>1.8</java.target.version>
         <geotools.version>22-RC</geotools.version>
+        <slf4j.version>1.7.36</slf4j.version>
+        <logback.version>1.2.3</logback.version>
     </properties>
 
     <repositories>
@@ -82,6 +84,24 @@ maven依赖pom
     </repositories>
 
     <dependencies>
+        <!--[slf4j logback配置](http://www.51gjie.com/javaweb/1123.html)-->
+        <!--slf4j日志-->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <!--logback-->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.geotools</groupId>
             <artifactId>gt-grid</artifactId>
@@ -141,10 +161,15 @@ maven依赖pom
 
 ## 2.2 实现
 
-思路
+切面的思路
 
-1. 获取边界，构建矩形
+1. 以东西为x轴、南北为y轴，获取边界，构建超大矩形
 2. 根据要切的边长，将矩形切成小块。
+
+切线的思路
+
+1. 获取线的顶点
+2. 每两对顶点构成一个向量，然后从起点根据三角函数，算出所有均分点，切成小块后，旋转角度即可。
 
 ![](https://meethigher.top/blog/2022/geometry-grid/6.jpg)
 
@@ -326,8 +351,8 @@ import org.geotools.geometry.jts.ReferencedEnvelope;
 import org.geotools.grid.GridFeatureBuilder;
 import org.geotools.grid.Grids;
 import org.geotools.referencing.crs.DefaultGeographicCRS;
-import org.locationtech.jts.geom.Envelope;
-import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.geom.*;
+import org.locationtech.jts.operation.buffer.BufferOp;
 import org.opengis.feature.simple.SimpleFeature;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 
@@ -345,7 +370,7 @@ public class GridCreator {
 
     /**
      * 坐标系
-     * 默认使用WGS
+     * 默认使用84坐标系
      */
     private CoordinateReferenceSystem crs;
 
@@ -387,15 +412,67 @@ public class GridCreator {
     }
 
     /**
-     * 创建Grid
+     * LineSting拆分方格逻辑
      *
-     * @return Grid的wkt集合
+     * @param geometry
+     * @return
      */
-    public List<String> create() {
-        if (geometry == null) {
-            return null;
-        }
+    private List<String> linestringSplit(Geometry geometry) {
+        List<String> list = new LinkedList<>();
+        Coordinate[] coordinates = geometry.getCoordinates();
+        for (int i = 0; i < coordinates.length; i++) {
+            if ((i + 1) > geometry.getCoordinates().length - 1) {
+                break;
+            } else {
+                Coordinate start = coordinates[i];
+                Coordinate end = coordinates[i + 1];
+                double deltaY = (end.y - start.y);
+                double deltaX = (end.x - start.x);
+                //加该判断是为了针对奇葩问题。比如手一抖，连续点了好几个一样的点。
+                //至于特殊情况，像π、π/2，通过Math.atan取绝对值就够了
+                if (!(deltaX == 0 && deltaY == 0)) {
+                    double degree = Math.atan(deltaY / deltaX);
+                    //如果距离不足sideLen时，至少保证有一个点被渲染
+                    Geometry grid = GeoUtils.rotateGeometry(GeoUtils.createPoint(start.getX(), start.getY()).buffer(sideLen / 2, 1, BufferOp.CAP_SQUARE),
+                            GeoUtils.createPoint(start.getX(), start.getY()), degree, false);
+                    list.add(grid.toText());
+                    //此处选用1/2的原因，看图。只要<俺>到<终点>的距离大于边长的一半，就给再补一个块出来
+                    // ____________
+                    //|   __|__俺__|_终点
+                    //|_____|_____|
+                    while (GeoUtils.createLine(start, end).getLength() > sideLen * 1 / 2) {
+                        double x = sideLen * Math.cos(degree);
+                        double y = sideLen * Math.sin(degree);
+                        double realX;
+                        double realY;
+                        /*如果线的走向是往西，需要取相反数*/
+                        if (end.x >= start.x) {
+                            realX = (start.x + x);
+                            realY = (start.y + y);
+                        } else {
+                            realX = (start.x - x);
+                            realY = (start.y - y);
+                        }
+                        Point point = GeoUtils.createPoint(realX, realY);
+                        grid = GeoUtils.rotateGeometry(GeoUtils.createPoint(point.getX(), point.getY()).buffer(sideLen / 2, 1, BufferOp.CAP_SQUARE),
+                                GeoUtils.createPoint(point.getX(), point.getY()), degree, false);
+                        list.add(grid.toText());
+                        start = new Coordinate(point.getX(), point.getY());
 
+                    }
+                }
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Polygon拆分方格逻辑
+     *
+     * @param geometry
+     * @return
+     */
+    private List<String> polygonSplit(Geometry geometry) {
         //以东西为x轴，南北为y轴，获取包含此几何图形中最小和最大x和y值
         //如果是一条斜线，就重组x、y坐标构成一个矩形。
         Envelope envelopeInternal = geometry.getEnvelopeInternal();
@@ -438,26 +515,56 @@ public class GridCreator {
             return null;
         }
     }
+
+    /**
+     * 创建方格
+     *
+     * @return 方格的wkt集合
+     */
+    public List<String> create() {
+        if (geometry == null) {
+            return null;
+        }
+        if (geometry instanceof LineString) {
+            return linestringSplit(geometry);
+        } else {
+            return polygonSplit(geometry);
+        }
+    }
+
+
 }
 ```
 
 进行测试
 
 ```java
+/**
+ * 创建块及自身，按米来切分，最后转成度
+ * 获取结果方便地图展示
+ * 地图https://meethigher.top/wkt
+ *
+ * @throws Exception
+ */
 @Test
-public void testCreator() throws Exception {
+public void getResultShowOnEarth() throws Exception {
     String wkt = "LINESTRING(106.67105340852869 29.530636809322942,106.66803216986591 29.52328796943324)";
     //String wkt = "LINESTRING(106.66641855239867 29.52517003980182,106.67002344131468 29.532727843679083,106.67507028736871 29.530487446637224,106.67675256676739 29.533175917132013)";
     //String wkt = "POLYGON((106.65735483169556 29.530158851923517,106.65258264620205 29.52902369502023,106.64671182632448 29.530965403423963,106.64609384562937 29.52785865163041,106.64588785250089 29.524781676802462,106.65330362477108 29.522899600833085,106.6530289655202 29.524542686760086,106.65141534831493 29.527111822862878,106.6533379565226 29.527380681416773,106.65756082482405 29.526514355331983,106.65776682057185 29.52403482645859,106.66192102537026 29.522122860471057,106.67208337731424 29.521585112423097,106.67551660747264 29.522929476044652,106.67881250276693 29.52531940968403,106.67943048477169 29.528814585054363,106.68025446252427 29.532459000021845,106.67874383926389 29.53428115740634,106.6783661873778 29.532548613742065,106.67850351438389 29.530218596454873,106.6765122413635 29.531114763609096,106.67575693235264 29.5339824452562,106.67469262972004 29.536192894729282,106.67187738418576 29.53732797116615,106.67012643866471 29.53583444659172,106.67246103443901 29.5338330889642,106.67290735244748 29.531831692071208,106.66882181115214 29.53189143550047,106.66703653387954 29.53278758783246,106.66264200158184 29.535655222388314,106.65986108779906 29.536909786679814,106.65821314015191 29.5349084499357,106.65838480152888 29.532309639998616,106.65735483169556 29.530158851923517))";
 
-    WKTReader reader = new WKTReader();
-    Geometry geometry = reader.read(wkt);
-    GridCreator creator = new GridCreator(new GridCreatorFeatureBuilder(geometry, DefaultGeographicCRS.WGS84), 0.001, geometry);
-    List<String> list = creator.create();
-
-    //添加自身，方便显示，https://meethigher.top/wkt/
-    list.add(wkt);
-    System.out.println(list);
+    Geometry epsg3857 = GeoUtils.toEPSG3857(GeoUtils.wktToGeo(wkt));
+    GridCreator gridCreator = new GridCreator(100.0, epsg3857);
+    log.info("start");
+    List<String> list = gridCreator.create();
+    log.info("end-{}", list.size());
+    List<String> newList = new LinkedList<>();
+    newList.add(wkt);
+    Iterator<String> iterator = list.iterator();
+    while (iterator.hasNext()) {
+        newList.add(GeoUtils.toEPSG4326(GeoUtils.wktToGeo(iterator.next())).toText());
+        iterator.remove();
+    }
+    System.out.println(newList.toString().replaceAll("\\[|\\]", ""));
 }
 ```
 
@@ -472,3 +579,52 @@ public void testCreator() throws Exception {
 总体上，没什么特别复杂的，就是调用geotools提供的api就可以了。
 
 最大的收获，还是发现了这些大佬写的wkt展示的页面吧，页面有点难用，有时间再优化一下，现在先将就用着。
+
+# 三、小插曲
+
+在实现LineString线的拆分过程中，又重拾了还给老师的三角函数。
+
+这边一个难点是，**已知点A和中心点P和degree，求旋转degree后的B的坐标。**
+
+思路：
+
+1. A相对于P，就相当于平移后的a相当于原点o。a与x轴夹角可知为θ，旋转半径可知为r。
+2. A旋转degree后到B，就相当于a旋转degree后到b。
+3. a旋转后得到的b与x轴夹角为***θ-degree***，由于旋转半径已知，可求出b
+4. b平移得到最终B
+
+![](https://meethigher.top/blog/2022/geometry-grid/11.jpg)
+
+关键逻辑代码
+
+```java
+/**
+ * 旋转
+ * 在平面坐标系算会比较准，建议旋转时使用3857坐标系
+ * <p>
+ * 数学题，A以P为中心，求旋转degree后B的坐标
+ *
+ * @param P           旋转中心点
+ * @param A           待旋转的点
+ * @param degree      度数
+ * @param isClockwise true为顺时针，false为逆时针
+ * @return A以P为中心旋转degree后B的坐标
+ */
+public static Point rotatePoint(Point A, Point P,
+                                double degree, boolean isClockwise) {
+    //将点A平移到点a。点A以P为中心<==>点a以原点o为中心
+    Point a = GeoUtils.createPoint(A.getX() - P.getX(), A.getY() - P.getY());
+    //以原点o为中心的圆半径<==>以P为中心的圆的半径
+    double radius = pointLength(a, GeoUtils.createPoint(0.0, 0.0));
+    //线段oa与x轴的角度
+    double degreeWithX = degree(a.getX(), a.getY());
+    //线段oa旋转后与x轴的角度
+    double degreeAfterRotateWithX = degreeWithX - (isClockwise ? 1 : -1) * degree;
+    //获取到旋转后的点b
+    Point b = GeoUtils.createPoint(radius * Math.cos(degreeAfterRotateWithX),
+            radius * Math.sin(degreeAfterRotateWithX));
+    //平移获取最终B点
+    return GeoUtils.createPoint(b.getX() + P.getX(), b.getY() + P.getY());
+}
+```
+

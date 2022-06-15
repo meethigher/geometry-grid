@@ -9,11 +9,14 @@
     <version>1.0.0</version>
 
     <properties>
+        <java.version>8</java.version>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>utf-8</project.build.sourceEncoding>
         <compiler.encoding>utf-8</compiler.encoding>
-        <java.source.version>1.8</java.source.version>
-        <java.target.version>1.8</java.target.version>
         <geotools.version>22-RC</geotools.version>
+        <slf4j.version>1.7.36</slf4j.version>
+        <logback.version>1.2.3</logback.version>
     </properties>
 
     <repositories>
@@ -31,6 +34,24 @@
     </repositories>
 
     <dependencies>
+        <!--[slf4j logback配置](http://www.51gjie.com/javaweb/1123.html)-->
+        <!--slf4j日志-->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <!--logback-->
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-core</artifactId>
+            <version>${logback.version}</version>
+        </dependency>
         <dependency>
             <groupId>org.geotools</groupId>
             <artifactId>gt-grid</artifactId>
@@ -84,7 +105,6 @@
             <version>4.12</version>
             <scope>test</scope>
         </dependency>
-
 
 
     </dependencies>
