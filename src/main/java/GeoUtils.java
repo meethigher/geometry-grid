@@ -8,6 +8,7 @@ import org.opengis.referencing.crs.CRSAuthorityFactory;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
 
+
 /**
  * 工具类
  * 仅适用于中国的点位坐标系转换
@@ -23,10 +24,10 @@ import org.opengis.referencing.operation.MathTransform;
  * <p>
  * 搜狗坐标系、图吧坐标系等，估计也是在GCJ02基础上加密而成的。
  * <p>
- * [JAVA实现WGS84、百度坐标系、高德坐标系转化工具类_javawgs84 坐标系 转 gcj02 坐标系-CSDN博客](https://blog.csdn.net/lc_2014c/article/details/125878730)
- * [C# 计算一个点围绕另一个点旋转指定弧度后的坐标_chenzai1946的博客-CSDN博客](https://blog.csdn.net/chenzai1946/article/details/100718099)
  *
- * @author chenchuancheng
+ * @author <a href="https://meethigher.top">chenchuancheng</a>
+ * @see <a href="https://blog.csdn.net/lc_2014c/article/details/125878730">JAVA实现WGS84、百度坐标系、高德坐标系转化工具类_javawgs84 坐标系 转 gcj02 坐标系-CSDN博客</a>
+ * @see <a href="https://blog.csdn.net/chenzai1946/article/details/100718099">C# 计算一个点围绕另一个点旋转指定弧度后的坐标-CSDN博客</a>
  * @since 2022/5/19 16:54
  */
 public class GeoUtils {
