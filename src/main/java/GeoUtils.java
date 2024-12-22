@@ -8,6 +8,10 @@ import org.opengis.referencing.crs.CRSAuthorityFactory;
 import org.opengis.referencing.crs.CoordinateReferenceSystem;
 import org.opengis.referencing.operation.MathTransform;
 
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 
 /**
  * 工具类
@@ -37,6 +41,7 @@ public class GeoUtils {
     private final static double a = 6378245.0;
     private final static double ee = 0.00669342162296594323;
     private final static WKTReader wktReader = new WKTReader();
+    private final static Pattern wktParsePattern = Pattern.compile("([-+]?\\d*\\.?\\d+)\\s+([-+]?\\d*\\.?\\d+)");
 
     /**
      * 是否超出中国范围以外
@@ -75,7 +80,7 @@ public class GeoUtils {
     /**
      * 转换为84坐标系
      */
-    private static double[] transform(double lat, double lon) {
+    private static double[] transform(double lon, double lat) {
         if (outOfChina(lat, lon)) {
             return new double[]{lat, lon};
         }
@@ -93,13 +98,40 @@ public class GeoUtils {
         return new double[]{mgLat, mgLon};
     }
 
+    /**
+     * 将WKT进行坐标转换
+     */
+    private static String transformWKT(String wkt, Function<double[], double[]> function) {
+        Matcher matcher = wktParsePattern.matcher(wkt);
+        StringBuffer transformedWkt = new StringBuffer();
+
+        while (matcher.find()) {
+            // 提取原始坐标
+            double lon = Double.parseDouble(matcher.group(1));
+            double lat = Double.parseDouble(matcher.group(2));
+
+            // 调用 transform 方法转换坐标
+            double[] origin = new double[]{
+                    lon, lat
+            };
+            double[] transformed = function.apply(origin);
+
+            // 替换为新坐标
+            String transformedPair = transformed[1] + " " + transformed[0];
+            matcher.appendReplacement(transformedWkt, transformedPair);
+        }
+        matcher.appendTail(transformedWkt);
+
+        return transformedWkt.toString();
+    }
+
 
     /**
      * 84 to 火星坐标系 (GCJ-02)
      * <p>
      * World Geodetic System ==> Mars Geodetic System
      */
-    public static double[] wgs84togcj02(double lat, double lon) {
+    public static double[] wgs84ToGcj02(double lon, double lat) {
         if (outOfChina(lat, lon)) {
             return null;
         }
@@ -117,14 +149,22 @@ public class GeoUtils {
         return new double[]{mgLat, mgLon};
     }
 
+    public static String wgs84ToGcj02ByWKT(String wkt) {
+        return transformWKT(wkt, doubles -> wgs84ToGcj02(doubles[0], doubles[1]));
+    }
+
     /**
      * 火星坐标系 (GCJ-02) to 84
      */
-    public static double[] gcj02towgs84(double lat, double lon) {
+    public static double[] gcj02ToWgs84(double lon, double lat) {
         double[] gps = transform(lat, lon);
         double longitude = lon * 2 - gps[0];
         double latitude = lat * 2 - gps[1];
         return new double[]{latitude, longitude};
+    }
+
+    public static String gcj02ToWgs84ByWKT(String wkt) {
+        return transformWKT(wkt, doubles -> gcj02ToWgs84(doubles[0], doubles[1]));
     }
 
 
@@ -133,7 +173,7 @@ public class GeoUtils {
      * <p>
      * 将 GCJ-02 坐标转换成 BD-09 坐标
      */
-    public static double[] gcj02tobd09(double gg_lat, double gg_lon) {
+    public static double[] gcj02ToBd09(double gg_lon, double gg_lat) {
         double x = gg_lon, y = gg_lat;
 
         double z = Math.sqrt(x * x + y * y) + 0.00002 * Math.sin(y * pi);
@@ -147,12 +187,16 @@ public class GeoUtils {
         return new double[]{bd_lat, bd_lon};
     }
 
+    public static String gcj02ToBd09ByWKT(String wkt) {
+        return transformWKT(wkt, doubles -> gcj02ToBd09(doubles[0], doubles[1]));
+    }
+
     /**
      * 火星坐标系 (GCJ-02) 与百度坐标系 (BD-09) 的转换算法
      * <p>
      * 将 BD-09 坐标转换成GCJ-02 坐标
      */
-    public static double[] bd09togcj02(double bd_lat, double bd_lon) {
+    public static double[] bd09ToGcj02(double bd_lon, double bd_lat) {
         double x = bd_lon - 0.0065, y = bd_lat - 0.006;
         double z = Math.sqrt(x * x + y * y) - 0.00002 * Math.sin(y * pi);
 
@@ -165,11 +209,15 @@ public class GeoUtils {
         return new double[]{gg_lat, gg_lon};
     }
 
+    public static String bd09ToGcj02ByWKT(String wkt) {
+        return transformWKT(wkt, doubles -> bd09ToGcj02(doubles[0], doubles[1]));
+    }
+
 
     /**
      * WGS84坐标系(EPSG:4326)转换为墨卡托投影坐标系(EPSG:3857)
      */
-    public static double[] wgs84tomercator(double lon, double lat) {
+    public static double[] wgs84ToMercator(double lon, double lat) {
         //wgs84下的地球半径
         double earthRadius = 6378137.0;
         double arc = lat * pi / 180;
@@ -179,10 +227,14 @@ public class GeoUtils {
         };
     }
 
+    public static String wgs84ToMercatorByWKT(String wkt) {
+        return transformWKT(wkt, doubles -> wgs84ToMercator(doubles[0], doubles[1]));
+    }
+
     /**
      * 墨卡托投影坐标系(EPSG:3857)转换为wgs84坐标系(EPSG:4326)
      */
-    public static double[] mercatortowgs84(double lon, double lat) {
+    public static double[] mercatorToWgs84(double lon, double lat) {
         //wgs84下的地球半径
         double earthRadius = 6378137.0;
         //周长
@@ -191,6 +243,10 @@ public class GeoUtils {
                 lat / round * 180,
                 180 / pi * (2 * Math.atan(Math.exp((lon / round * 180) * Math.PI / 180)) - Math.PI / 2)
         };
+    }
+
+    public static String mercatorToWgs84ByWKT(String wkt) {
+        return transformWKT(wkt, doubles -> mercatorToWgs84(doubles[0], doubles[1]));
     }
 
     /**
